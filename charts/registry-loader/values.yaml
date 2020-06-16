@@ -9,6 +9,8 @@ image:
 
 # define environment variables here as a map of key: value
 env:
+  DB_SERVICE:     postgres-db-postgresql.persistence.svc.cluster.local
+  DB_USER:        postgres
 
 # enable this flag to use knative serve to deploy the app
 knativeDeploy: false
