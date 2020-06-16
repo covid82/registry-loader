@@ -17,13 +17,9 @@ object Main extends IOApp {
 
   import scala.concurrent.duration._
   import fs2.Stream
-  import cats.effect.{ConcurrentEffect, Timer, Async, ContextShift}
+  import cats.effect.{Timer, Async, ContextShift}
   import cats.syntax.apply._
 
-  def server[F[_] : ConcurrentEffect : Timer]: Stream[F, Nothing] = BlazeServerBuilder[F]
-    .bindHttp(host = "0.0.0.0", port = 8080)
-    .withHttpApp(monitoringRoute[F].orNotFound)
-    .serve.drain
 
   def log[F[_] : Sync](msg: String): Stream[F, Unit] = eval[F, Unit](Sync[F].delay(println(msg)))
 
@@ -67,6 +63,5 @@ object Main extends IOApp {
         case Right(value) => Stream(value)
       }.compile.drain
     }.start
-    _ <- server[IO].compile.drain
   } yield ExitCode.Success
 }
