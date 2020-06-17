@@ -1,11 +1,12 @@
 package org.covid82.registryloader
 
-import cats.effect.{ExitCode, IO, IOApp, Sync}
+import cats.effect.{Async, ContextShift, ExitCode, IO, IOApp, Sync, Timer}
 import cats.kernel.Monoid
 import org.covid82.registryloader.RegistryWriter.write
-import org.http4s.server.blaze.BlazeServerBuilder
 import fs2.Stream._
 import cats.kernel.instances.int.catsKernelStdGroupForInt
+import fs2.Stream
+import cats.syntax.apply._
 
 object Main extends IOApp {
 
@@ -15,26 +16,20 @@ object Main extends IOApp {
     user = "anonymous", pass = ""
   )
 
-  import scala.concurrent.duration._
-  import fs2.Stream
-  import cats.effect.{Timer, Async, ContextShift}
-  import cats.syntax.apply._
-
-
   def log[F[_] : Sync](msg: String): Stream[F, Unit] = eval[F, Unit](Sync[F].delay(println(msg)))
 
   def count[F[_], A](fa: Stream[F, A]): Stream[F, Int] = fa.foldMap(_ => 1)
 
   def sum[F[_], A: Monoid](s: Stream[F, A]): Stream[F, A] = s.foldMonoid
 
-  def read[F[_] : Timer : Async : ContextShift](
+  def load[F[_] : Timer : Async : ContextShift](
     service: String,
     user: String,
     pass: String
   ): Stream[F, Unit] = {
-    val reader = RegistryReader.ftp[F](ftpConfig)
-    log("started reading registry") *> {
-      val rows = reader.readRows
+    val loader = RegistryReader.ftp[F](ftpConfig)
+    log("started loading registry") *> {
+      val rows = loader.readRows
       count(rows).flatMap(size => log(s"loaded $size records")) *> {
         sum(rows.through(write(service, user, pass))).flatMap { count =>
           log(s"saved $count records into database")
@@ -44,24 +39,22 @@ object Main extends IOApp {
   }
 
   override def run(args: List[String]): IO[ExitCode] = for {
-    (service, user, pass, delay) <- IO.delay {
+    (service, user, pass) <- IO.delay {
       val service = sys.env.getOrElse("DB_SERVICE", "localhost:5432")
       val user = sys.env.getOrElse("DB_USER", "postgres")
       val pass = sys.env.getOrElse("DB_PASS", "postgres")
-      val delay = sys.env.getOrElse("LOAD_FREQUENCY", "5minutes")
-      (service, user, pass, delay)
+      (service, user, pass)
+    }
+    _ <- IO {
+      println(s"service: [$service]")
+      println(s"user:    [$user]")
+      println(s"pass:    [******]")
     }
     _ <- {
-      import scala.util.Try
-      val readAndWrite = read[IO](service, user, pass)
-      val duration = Try(Duration(delay))
-        .map(duration => FiniteDuration(duration.length, duration.unit))
-        .getOrElse(1.day)
-      val stream = readAndWrite ++ Stream.awakeEvery[IO](duration) *> readAndWrite
-      stream.drain.attempt.flatMap {
+      load[IO](service, user, pass).drain.attempt.flatMap {
         case Left(throwable) => Stream.eval(IO.delay(println("error: " + throwable)))
         case Right(value) => Stream(value)
       }.compile.drain
-    }.start
+    }
   } yield ExitCode.Success
 }
