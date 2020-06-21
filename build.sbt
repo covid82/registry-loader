@@ -4,6 +4,7 @@ val Specs2Version = "4.9.3"
 val LogbackVersion = "1.2.3"
 val Fs2FtpVersion = "0.4.0"
 val DoobieVersion = "0.8.6"
+val SqsVersion = "1.11.807"
 
 lazy val root = (project in file("."))
   .settings(
@@ -21,7 +22,8 @@ lazy val root = (project in file("."))
       "ch.qos.logback"         %  "logback-classic"     % LogbackVersion,
       "com.github.regis-leray" %% "fs2-ftp"             % Fs2FtpVersion,
       "org.tpolecat"           %% "doobie-core"         % DoobieVersion,
-      "org.tpolecat"           %% "doobie-postgres"     % DoobieVersion
+      "org.tpolecat"           %% "doobie-postgres"     % DoobieVersion,
+      "com.amazonaws"          % "aws-java-sdk-sqs"     % SqsVersion
     ),
     addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.10.3"),
     addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1")
