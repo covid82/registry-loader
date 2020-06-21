@@ -39,6 +39,8 @@ object Main extends IOApp {
     }
   }
 
+  import cats.syntax.apply._
+
   override def run(args: List[String]): IO[ExitCode] = for {
     (service, user, pass) <- IO.delay {
       val service = sys.env.getOrElse("DB_SERVICE", "localhost:5432")
@@ -58,7 +60,11 @@ object Main extends IOApp {
       }.compile.drain
     }
     _ <- Resource[IO, AmazonSQS](IO((AmazonSQSClientBuilder.defaultClient, IO.unit))).use { sqs =>
-      IO(sqs.sendMessage("registry-notification", "{\"version\":" + System.currentTimeMillis() + "}"))
+      IO {
+        sqs.sendMessage("registry-notification", "{\"version\":" + System.currentTimeMillis() + "}")
+      } *> IO {
+        println("Sent notification")
+      }
     }
 
   } yield ExitCode.Success
