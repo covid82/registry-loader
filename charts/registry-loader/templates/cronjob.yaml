@@ -24,6 +24,21 @@ spec:
                     secretKeyRef:
                       name: postgres-token
                       key:  password
+                - name: AWS_REGION
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-config
+                      key:  aws_region
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-config
+                      key:  aws_access_key_id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-config
+                      key:  aws_secret_access_key
                 {{- range $pkey, $pval := .Values.env }}
                 - name: {{ $pkey }}
                   value: {{ quote $pval }}

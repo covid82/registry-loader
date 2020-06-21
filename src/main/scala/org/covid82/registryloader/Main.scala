@@ -1,12 +1,13 @@
 package org.covid82.registryloader
 
-import cats.effect.{Async, ContextShift, ExitCode, IO, IOApp, Sync, Timer}
+import cats.effect.{Async, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.kernel.Monoid
 import org.covid82.registryloader.RegistryWriter.write
 import fs2.Stream._
 import cats.kernel.instances.int.catsKernelStdGroupForInt
 import fs2.Stream
 import cats.syntax.apply._
+import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
 
 object Main extends IOApp {
 
@@ -38,6 +39,8 @@ object Main extends IOApp {
     }
   }
 
+  import cats.syntax.apply._
+
   override def run(args: List[String]): IO[ExitCode] = for {
     (service, user, pass) <- IO.delay {
       val service = sys.env.getOrElse("DB_SERVICE", "localhost:5432")
@@ -56,5 +59,13 @@ object Main extends IOApp {
         case Right(value) => Stream(value)
       }.compile.drain
     }
+    _ <- Resource[IO, AmazonSQS](IO((AmazonSQSClientBuilder.defaultClient, IO.unit))).use { sqs =>
+      IO {
+        sqs.sendMessage("registry-notification", "{\"version\":" + System.currentTimeMillis() + "}")
+      } *> IO {
+        println("Sent notification")
+      }
+    }
+
   } yield ExitCode.Success
 }
